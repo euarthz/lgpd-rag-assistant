@@ -80,10 +80,12 @@ def responder(pergunta, pedacos, matriz):
 
 
 def citacoes_fora_dos_trechos(resposta, encontrados):
-    """Artigos citados na resposta que não estavam entre os trechos enviados."""
-    enviados = {p["artigo"] for p, _ in encontrados}
-    return sorted(numeros_de_artigos(resposta) - enviados)
-
+    """Artigos citados na resposta que não estavam nos trechos enviados nem são
+    mencionados dentro deles (referências internas da própria lei)."""
+    permitidos = {p["artigo"] for p, _ in encontrados}
+    for p, _ in encontrados:
+        permitidos |= numeros_de_artigos(p["texto"])
+    return sorted(numeros_de_artigos(resposta) - permitidos)
 
 def main():
     pergunta = " ".join(sys.argv[1:]) or input("Pergunta sobre a LGPD: ")
