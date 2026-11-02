@@ -51,6 +51,20 @@ def quebrar_por_artigo(texto: str) -> list:
     return pedacos
 
 
+def remover_vetados(pedacos: list) -> list:
+    """Artigos vetados só têm '(VETADO).' e nenhum conteúdo: não entram no índice."""
+    return [p for p in pedacos if not (len(p["texto"]) < 40 and "VETADO" in p["texto"])]
+
+
+def manter_versao_mais_recente(pedacos: list) -> list:
+    """O site mostra as redações antigas dos artigos alterados, da mais antiga
+    para a mais nova. Ficamos com a última ocorrência de cada artigo."""
+    ultimos = {}
+    for p in pedacos:
+        ultimos[p["artigo"]] = p  # a última ocorrência sobrescreve as anteriores
+    return list(ultimos.values())
+
+
 def gerar_embeddings(textos: list) -> list:
     vetores = []
     for i in range(0, len(textos), TAMANHO_LOTE):
@@ -63,23 +77,28 @@ def gerar_embeddings(textos: list) -> list:
 
 def main():
     texto = ler_texto()
-    pedacos = quebrar_por_artigo(texto)
-    ids = [p["artigo"] for p in pedacos]
-    repetidos = sorted({a for a in ids if ids.count(a) > 1})
-    print(f"Artigos encontrados: {len(pedacos)} (primeiro: {ids[0]}, último: {ids[-1]})")
-    if repetidos:
-        print(f"ATENÇÃO: artigos repetidos: {repetidos}")
+    brutos = quebrar_por_artigo(texto)
+    sem_vetados = remover_vetados(brutos)
+    ids = [p["artigo"] for p in sem_vetados]
+    repetidos = {a for a in ids if ids.count(a) > 1}
+    pedacos = manter_versao_mais_recente(sem_vetados)
+    print(
+        f"Pedaços brutos: {len(brutos)} | sem vetados: {len(sem_vetados)} "
+        f"| um por artigo: {len(pedacos)}"
+    )
 
+    print("\nVersão escolhida dos artigos que tinham várias versões (final do texto):")
+    for p in pedacos:
+        if p["artigo"] in repetidos:
+            print(f"  Art. {p['artigo']}: ...{p['texto'][-110:]!r}")
+
+    print()
     vetores = gerar_embeddings([f"{p['capitulo']}\n{p['texto']}" for p in pedacos])
     for pedaco, vetor in zip(pedacos, vetores):
         pedaco["embedding"] = vetor
 
     ARQUIVO_INDICE.write_text(json.dumps(pedacos, ensure_ascii=False), encoding="utf-8")
     print(f"Índice salvo em {ARQUIVO_INDICE} ({len(pedacos)} pedaços)")
-
-    art18 = next((p for p in pedacos if p["artigo"] == "18"), None)
-    if art18:
-        print("\nPré-visualização do Art. 18:\n" + art18["texto"][:600])
 
 
 if __name__ == "__main__":
