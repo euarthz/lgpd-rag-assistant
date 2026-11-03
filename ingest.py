@@ -15,6 +15,9 @@ PADRAO_ARTIGO = re.compile(r"^Art\.\s*(\d+)(?:\s*[º°])?(-[A-Z])?\.?\s", re.M)
 # Títulos de capítulo e de seção ocupam duas linhas: "CAPÍTULO II" + o nome
 PADRAO_CAPITULO = re.compile(r"^(CAPÍTULO\s+[IVXLC]+)[ \t]*\n+([^\n]+)", re.M)
 PADRAO_SECAO = re.compile(r"^(Seção\s+[IVXLC]+)[ \t]*\n+([^\n]+)\n?", re.M)
+PADRAO_INCISO = re.compile(r"^([IVXL]+) - ", re.M)
+# Rodapé da lei: "Brasília, 14 de agosto de 2018; ..."
+PADRAO_RODAPE = re.compile(r"\s*Brasília, \d+ de \w+ de \d{4}")
 
 
 def ler_texto() -> str:
@@ -39,8 +42,8 @@ def quebrar_por_artigo(texto: str) -> list:
         # Tira títulos de capítulo/seção que ficam no fim do artigo anterior
         corpo = PADRAO_CAPITULO.sub("", corpo)
         corpo = PADRAO_SECAO.sub("", corpo)
-        # Tira o rodapé (data e assinaturas) do último artigo
-        corpo = re.split(r"\nBrasília, \d", corpo)[0].strip()
+        # Tira o rodapé (data, assinaturas e avisos) do último artigo
+        corpo = PADRAO_RODAPE.split(corpo)[0].strip()
         # Descobre em qual capítulo o artigo está
         capitulo = ""
         for posicao, titulo in capitulos:
@@ -65,30 +68,38 @@ def manter_versao_mais_recente(pedacos: list) -> list:
     return list(ultimos.values())
 
 
-PADRAO_INCISO = re.compile(r"^([IVXL]+) - ", re.M)
+def remover_revogados(pedacos: list) -> tuple:
+    """Artigos cuja redação atual está marcada como revogada não valem mais.
+    No site o texto revogado aparece riscado; ao copiar, o risco se perde."""
+    vigentes, revogados = [], []
+    for p in pedacos:
+        primeira_linha = p["texto"].split("\n", 1)[0]
+        if re.search(r"\(Revogad[oa]\b", primeira_linha):
+            revogados.append(p)
+        else:
+            vigentes.append(p)
+    return vigentes, revogados
 
 
 def dividir_artigo_por_inciso(pedaco: dict) -> list:
     """Divide um artigo longo em um pedaço por inciso. Cada pedaço leva a frase
-    de abertura (caput) para não perder o contexto."""
+    de abertura (caput). Incisos repetidos (redações antigas) ficam só com a última."""
     texto = pedaco["texto"]
     achados = list(PADRAO_INCISO.finditer(texto))
     if len(achados) < 2:
         return [pedaco]
     caput = texto[: achados[0].start()].strip()
-    partes = []
+    ultimos = {}
     for i, achado in enumerate(achados):
         fim = achados[i + 1].start() if i + 1 < len(achados) else len(texto)
         corpo = texto[achado.start() : fim].strip()
-        partes.append(
-            {
-                "artigo": pedaco["artigo"],
-                "inciso": achado.group(1),
-                "capitulo": pedaco["capitulo"],
-                "texto": f"{caput}\n{corpo}",
-            }
-        )
-    return partes
+        ultimos[achado.group(1)] = {
+            "artigo": pedaco["artigo"],
+            "inciso": achado.group(1),
+            "capitulo": pedaco["capitulo"],
+            "texto": f"{caput}\n{corpo}",
+        }
+    return list(ultimos.values())
 
 
 def gerar_embeddings(textos: list) -> list:
@@ -108,21 +119,28 @@ def main():
     ids = [p["artigo"] for p in sem_vetados]
     repetidos = {a for a in ids if ids.count(a) > 1}
     pedacos = manter_versao_mais_recente(sem_vetados)
-    divididos = []
-    for p in pedacos:
-        divididos.extend(dividir_artigo_por_inciso(p) if p["artigo"] == "5" else [p])
-    pedacos = divididos
-    print(
-        f"Pedaços brutos: {len(brutos)} | sem vetados: {len(sem_vetados)} "
-        f"| um por artigo: {len(pedacos)}"
-    )
 
-    print("\nVersão escolhida dos artigos que tinham várias versões (final do texto):")
+    print("Versão escolhida dos artigos que tinham várias versões (final do texto):")
     for p in pedacos:
         if p["artigo"] in repetidos:
             print(f"  Art. {p['artigo']}: ...{p['texto'][-110:]!r}")
 
-    print()
+    pedacos, revogados = remover_revogados(pedacos)
+    artigos_vigentes = len(pedacos)
+
+    divididos = []
+    for p in pedacos:
+        divididos.extend(dividir_artigo_por_inciso(p) if p["artigo"] == "5" else [p])
+    pedacos = divididos
+
+    print(
+        f"\nPedaços brutos: {len(brutos)} | sem vetados: {len(sem_vetados)} "
+        f"| artigos vigentes: {artigos_vigentes} | pedaços no índice: {len(pedacos)}"
+    )
+    print(f"Artigos revogados fora do índice: {[p['artigo'] for p in revogados]}")
+    incisos = [p["inciso"] for p in pedacos if p["artigo"] == "5" and "inciso" in p]
+    print(f"Incisos do Art. 5 no índice: {len(incisos)} -> {incisos}\n")
+
     vetores = gerar_embeddings([f"{p['capitulo']}\n{p['texto']}" for p in pedacos])
     for pedaco, vetor in zip(pedacos, vetores):
         pedaco["embedding"] = vetor
