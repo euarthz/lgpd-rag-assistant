@@ -32,6 +32,14 @@ FORA_DO_ESCOPO = [
     "Quem ganhou a Copa do Mundo de 2022?",
     "Qual a melhor linguagem de programação?",
     "Como funciona a fotossíntese?",
+    # Perguntas próximas do tema, mas que o texto da LGPD não responde:
+    "O que é o GDPR europeu?",
+    "Quais são os direitos do consumidor no Código de Defesa do Consumidor?",
+    "Como proteger meu computador contra vírus?",
+    "O que é um ataque de phishing?",
+    "O que diz o Marco Civil da Internet sobre neutralidade da rede?",
+    "Qual é o prazo de prescrição para ações trabalhistas?",
+    "Quanto uma empresa deve gastar com segurança da informação?",
 ]
 
 
