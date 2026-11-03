@@ -65,6 +65,32 @@ def manter_versao_mais_recente(pedacos: list) -> list:
     return list(ultimos.values())
 
 
+PADRAO_INCISO = re.compile(r"^([IVXL]+) - ", re.M)
+
+
+def dividir_artigo_por_inciso(pedaco: dict) -> list:
+    """Divide um artigo longo em um pedaço por inciso. Cada pedaço leva a frase
+    de abertura (caput) para não perder o contexto."""
+    texto = pedaco["texto"]
+    achados = list(PADRAO_INCISO.finditer(texto))
+    if len(achados) < 2:
+        return [pedaco]
+    caput = texto[: achados[0].start()].strip()
+    partes = []
+    for i, achado in enumerate(achados):
+        fim = achados[i + 1].start() if i + 1 < len(achados) else len(texto)
+        corpo = texto[achado.start() : fim].strip()
+        partes.append(
+            {
+                "artigo": pedaco["artigo"],
+                "inciso": achado.group(1),
+                "capitulo": pedaco["capitulo"],
+                "texto": f"{caput}\n{corpo}",
+            }
+        )
+    return partes
+
+
 def gerar_embeddings(textos: list) -> list:
     vetores = []
     for i in range(0, len(textos), TAMANHO_LOTE):
@@ -82,6 +108,10 @@ def main():
     ids = [p["artigo"] for p in sem_vetados]
     repetidos = {a for a in ids if ids.count(a) > 1}
     pedacos = manter_versao_mais_recente(sem_vetados)
+    divididos = []
+    for p in pedacos:
+        divididos.extend(dividir_artigo_por_inciso(p) if p["artigo"] == "5" else [p])
+    pedacos = divididos
     print(
         f"Pedaços brutos: {len(brutos)} | sem vetados: {len(sem_vetados)} "
         f"| um por artigo: {len(pedacos)}"

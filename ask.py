@@ -19,7 +19,7 @@ PADRAO_CITACAO = re.compile(r"\bart(?:igos?|s?\.)?\s*(\d+)(?:-([A-Za-z])\b)?", r
 INSTRUCOES = (
     "Você é um assistente que responde perguntas sobre a LGPD (Lei nº 13.709/2018). "
     "Responda SOMENTE com base nos trechos da lei fornecidos pelo usuário. "
-    "Cada trecho começa com um cabeçalho '--- TRECHO: Art. N ---'. "
+    "Cada trecho começa com um cabeçalho '--- TRECHO: Art. N ---' (às vezes com o inciso). "
     "Cite o artigo indicado no cabeçalho do trecho de onde veio a informação "
     "(por exemplo, 'Art. 18, II'). Nunca cite um artigo que não apareça em um cabeçalho. "
     "Se os trechos não trouxerem a resposta, diga exatamente: "
@@ -34,6 +34,14 @@ def numeros_de_artigos(texto):
     for numero, letra in PADRAO_CITACAO.findall(texto):
         achados.add(numero + (f"-{letra.upper()}" if letra else ""))
     return achados
+
+
+def rotulo(pedaco):
+    """Nome do trecho para mostrar ao modelo e ao usuário: 'Art. 5, inciso VI'."""
+    texto = f"Art. {pedaco['artigo']}"
+    if pedaco.get("inciso"):
+        texto += f", inciso {pedaco['inciso']}"
+    return texto
 
 
 def carregar_indice():
@@ -54,14 +62,14 @@ def buscar(pergunta, pedacos, matriz, k=QUANTIDADE_TRECHOS):
 
     # Busca direta: artigos citados pelo número na pergunta vêm primeiro
     citados = numeros_de_artigos(pergunta)
-    diretos = [(p, 1.0) for p in pedacos if p["artigo"] in citados]
+    diretos = [(p, 1.0) for p, _ in ranking if p["artigo"] in citados]
     resto = [(p, s) for p, s in ranking if p["artigo"] not in citados]
     return (diretos + resto)[:k]
 
 
 def montar_mensagem(pergunta, encontrados):
     trechos = "\n\n".join(
-        f"--- TRECHO: Art. {p['artigo']} ---\n{p['texto']}" for p, _ in encontrados
+        f"--- TRECHO: {rotulo(p)} ---\n{p['texto']}" for p, _ in encontrados
     )
     return f"{trechos}\n\nPERGUNTA: {pergunta}"
 
@@ -87,6 +95,7 @@ def citacoes_fora_dos_trechos(resposta, encontrados):
         permitidos |= numeros_de_artigos(p["texto"])
     return sorted(numeros_de_artigos(resposta) - permitidos)
 
+
 def main():
     pergunta = " ".join(sys.argv[1:]) or input("Pergunta sobre a LGPD: ")
     pedacos, matriz = carregar_indice()
@@ -104,7 +113,7 @@ def main():
     print("\nTrechos usados:")
     for pedaco, nota in encontrados:
         origem = "citado na pergunta" if pedaco["artigo"] in citados else f"similaridade {nota:.2f}"
-        print(f"  Art. {pedaco['artigo']} ({origem})")
+        print(f"  {rotulo(pedaco)} ({origem})")
 
 
 if __name__ == "__main__":
