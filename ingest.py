@@ -17,7 +17,7 @@ PADRAO_CAPITULO = re.compile(r"^(CAPÍTULO\s+[IVXLC]+)[ \t]*\n+([^\n]+)", re.M)
 PADRAO_SECAO = re.compile(r"^(Seção\s+[IVXLC]+)[ \t]*\n+([^\n]+)\n?", re.M)
 PADRAO_INCISO = re.compile(r"^([IVXL]+) - ", re.M)
 # Rodapé da lei: "Brasília, 14 de agosto de 2018; ..."
-PADRAO_RODAPE = re.compile(r"\s*Brasília, \d+ de \w+ de \d{4}")
+PADRAO_RODAPE = re.compile(r"\s*Brasília\s*, \d+ de \w+ de \d{4}")
 
 
 def ler_texto() -> str:
