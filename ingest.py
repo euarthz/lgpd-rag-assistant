@@ -21,7 +21,7 @@ PADRAO_RODAPE = re.compile(r"\s*Brasília, \d+ de \w+ de \d{4}")
 
 
 def ler_texto() -> str:
-    texto = ARQUIVO_LEI.read_text(encoding="utf-8")
+        texto = ARQUIVO_LEI.read_text(encoding="utf-8").replace("\xa0", " ")
     # Remove a palavra "Vigência" que o site deixa no fim das linhas (era um link)
     texto = re.sub(r"[ \t]*Vigência[ \t]*$", "", texto, flags=re.M)
     # Troca sequências de espaços por um espaço só
