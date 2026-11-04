@@ -62,7 +62,6 @@ Conjunto de avaliação: 20 perguntas sobre a lei (com o artigo esperado) e 12 f
 - **Nota inconsistente na fonte:** na cópia, o Art. 55-A cita a "Lei nº 15.452, de 2026" e o Art. 55-C cita a
   "Lei nº 15.352, de 2026". Não verifiquei qual está correta, e o texto foi mantido como estava.
 - A busca direta por número reconhece só o primeiro artigo mencionado na pergunta.
-- O Art. 65 ainda inclui um aviso de rodapé da página de origem.
 
 ## Como rodar
 
